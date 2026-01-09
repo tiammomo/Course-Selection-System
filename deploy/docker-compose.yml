@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SESSION_KEY=${SESSION_KEY}
+    depends_on:
+      - mysql
+      - redis
+      - rocketmq
+    networks:
+      - course-selection
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=course_select
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - course-selection
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - course-selection
+    restart: unless-stopped
+
+  rocketmq:
+    image: apache/rocketmq:4.9.4
+    ports:
+      - "9876:9876"
+      - "10911:10911"
+      - "10912:10912"
+    volumes:
+      - rocketmq_data:/store
+      - rocketmq_logs:/logs
+    environment:
+      - JAVA_OPT_EXT=-Xms512m -Xmx512m
+    networks:
+      - course-selection
+    restart: unless-stopped
+    command: sh mqnamesrv && sh mqbroker -n localhost:9876
+
+  rocketmq-console:
+    image: pangliang/rocketmq-console-ng
+    ports:
+      - "8081:8080"
+    environment:
+      - JAVA_OPTS=-Xmx256m -Xms128m
+      - rocketmq.config.namesrvAddr=rocketmq:9876
+    depends_on:
+      - rocketmq
+    networks:
+      - course-selection
+    restart: unless-stopped
+
+networks:
+  course-selection:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  rocketmq_data:
+  rocketmq_logs:
